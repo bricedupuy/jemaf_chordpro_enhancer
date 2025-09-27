@@ -16,6 +16,7 @@ Features:
 - Deduplicated sections
 - Generate FreeShow .show files
 - French punctuation handling with non-breaking spaces
+- Compliant with FreeShow .show format specification
 
 Usage: 
   python enhanced_chordpro_processor.py                    # Interactive online mode
@@ -102,10 +103,10 @@ class FrenchPunctuationHandler:
         if not text or not isinstance(text, str):
             return text
         
-        # Handle double punctuation: replace space before ;:!?Â» with non-breaking space
+        # Handle double punctuation: replace space before ;:!?» with non-breaking space
         text = cls.DOUBLE_PUNCT_PATTERN.sub(rf'{cls.NBSP}\1', text)
         
-        # Handle opening guillemets: replace space after Â« with non-breaking space
+        # Handle opening guillemets: replace space after « with non-breaking space
         text = cls.OPENING_GUILLEMETS_PATTERN.sub(rf'\1{cls.NBSP}', text)
         
         return text
@@ -452,25 +453,26 @@ class ChordProProcessor:
     def parse_chord_line(self, line: str) -> Tuple[List[Dict], str]:
         """Parse a line with chords and return chord positions and clean text"""
         chords = []
-        clean_text = line
         
-        # Find all chord positions
-        for match in self.chord_pattern.finditer(line):
+        # Find all chord matches first
+        chord_matches = list(self.chord_pattern.finditer(line))
+        
+        # Calculate adjusted positions and build chord list
+        for i, match in enumerate(chord_matches):
             chord = match.group(1)
-            pos = match.start()
+            original_pos = match.start()
             
-            # Adjust position for previously removed chords
-            adjusted_pos = pos
-            for prev_chord in chords:
-                if prev_chord['original_pos'] < pos:
-                    adjusted_pos -= len(f"[{prev_chord['chord']}]")
+            # Calculate adjusted position by subtracting lengths of all previous chord brackets
+            adjusted_pos = original_pos
+            for prev_match in chord_matches[:i]:
+                prev_chord_text = f"[{prev_match.group(1)}]"
+                adjusted_pos -= len(prev_chord_text)
             
+            # Format according to FreeShow spec: id, pos, key
             chords.append({
-                'id': hashlib.md5(f"{chord}{pos}".encode('utf-8')).hexdigest()[:5],
+                'id': hashlib.md5(f"{chord}{original_pos}".encode('utf-8')).hexdigest()[:5],
                 'pos': max(0, adjusted_pos),
-                'key': chord,
-                'chord': chord,
-                'original_pos': pos
+                'key': chord
             })
         
         # Remove chord brackets from text
@@ -478,7 +480,7 @@ class ChordProProcessor:
         
         return chords, clean_text
     
-    def create_freeshow_slide(self, section: ChordProSection, slide_id: str, colors: Dict[str, str]) -> Dict:
+    def create_freeshow_slide(self, section: ChordProSection, slide_id: str) -> Dict:
         """Create a FreeShow slide from a ChordPro section"""
         
         # Determine slide colors and groups
@@ -493,9 +495,13 @@ class ChordProProcessor:
         }
         
         global_groups = {
+            'verse': 'verse',
             'chorus': 'chorus',
             'bridge': 'bridge',
-            'pre_chorus': 'pre_chorus'
+            'pre_chorus': 'pre_chorus',
+            'tag': 'tag',
+            'intro': 'intro',
+            'outro': 'outro'
         }
         
         slide_data = {
@@ -504,6 +510,7 @@ class ChordProProcessor:
             "settings": {},
             "notes": "",
             "items": [{
+                "type": "text",  # Required by FreeShow spec
                 "lines": [],
                 "style": "top:120px;left:50px;height:840px;width:1820px;",
                 "align": "",
@@ -514,7 +521,7 @@ class ChordProProcessor:
             }]
         }
         
-        # Add global group for chorus and bridge
+        # Add global group
         if section.type in global_groups:
             slide_data["globalGroup"] = global_groups[section.type]
         
@@ -565,13 +572,6 @@ class ChordProProcessor:
         # Generate unique IDs
         show_id = hashlib.md5(filename.encode('utf-8')).hexdigest()[:11]
         
-        # Color scheme for different section types
-        section_colors = {
-            'verse': '',
-            'chorus': '#f525d2', 
-            'bridge': '#f52598'
-        }
-        
         # Deduplicate sections and build reference map
         unique_sections, index_map = self.deduplicate_sections(sections)
         
@@ -580,7 +580,7 @@ class ChordProProcessor:
         unique_slide_ids = []
         for i, section in enumerate(unique_sections):
             slide_id = hashlib.md5(f"{section.type}{i}{section.raw_content}".encode('utf-8')).hexdigest()[:11]
-            slides[slide_id] = self.create_freeshow_slide(section, slide_id, section_colors)
+            slides[slide_id] = self.create_freeshow_slide(section, slide_id)
             unique_slide_ids.append(slide_id)
 
         # Create layout based on original song structure (with duplicates)
@@ -606,7 +606,7 @@ class ChordProProcessor:
                 category = "JEM Kids"
             else:
                 category = "JEM"
-
+        
         freeshow_data = [
             show_id,
             {
@@ -616,15 +616,21 @@ class ChordProProcessor:
                 "category": category,
                 "settings": {
                     "activeLayout": layout_id,
-                    "template":  None
+                    "template": "default"
                 },
-                
+                # ADDED: Required timestamps object
+                "timestamps": {
+                    "created": current_time,
+                    "modified": current_time,
+                    "used": None
+                },
                 "quickAccess": {
                     "number": song_number
                 },
                 "meta": {
                     "number": song_number,
                     "title": title,
+                    "artist": author,  # Map author to artist as per spec
                     "author": author,
                     "composer": composer,
                     "copyright": copyright_text,
