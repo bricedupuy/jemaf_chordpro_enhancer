@@ -598,14 +598,22 @@ class ChordProProcessor:
         author = FrenchPunctuationHandler.fix_french_punctuation(file_metadata.get('lyricist', ''))
         composer = FrenchPunctuationHandler.fix_french_punctuation(file_metadata.get('composer', ''))
         copyright_text = FrenchPunctuationHandler.fix_french_punctuation(file_metadata.get('copyright', ''))
-        
+
+        # Extract category from filename prefix
+        category = "song"  # Default fallback
+        if filename.startswith('jem'):
+            if 'jemk' in filename.lower():
+                category = "JEM Kids"
+            else:
+                category = "JEM"
+
         freeshow_data = [
             show_id,
             {
                 "name": title,
                 "origin": "jemaf",
                 "private": False,
-                "category": "song",
+                "category": category,
                 "settings": {
                     "activeLayout": layout_id,
                     "template":  None
