@@ -83,17 +83,15 @@ class FrenchPunctuationHandler:
     # Non-breaking space character (Unicode U+00A0)
     NBSP = '\u00A0'
     
-    # French double punctuation marks that require a non-breaking space before them
-    DOUBLE_PUNCT_PATTERN = re.compile(r'\s*([;:!?Â»])')
-    
-    # Opening guillemets that require a non-breaking space after them
-    OPENING_GUILLEMETS_PATTERN = re.compile(r'(Â«)\s*')
+    # French double punctuation marks that require a non-breaking space
+    DOUBLE_PUNCT_PATTERN = re.compile(r'\s*([;:!?»])')
+    OPENING_GUILLEMETS_PATTERN = re.compile(r'(«)\s*')
     
     @classmethod
     def fix_french_punctuation(cls, text: str) -> str:
         """
         Fix French punctuation by replacing regular spaces with non-breaking spaces
-        before double punctuation marks (;:!?Â») and after opening guillemets (Â«).
+        before double punctuation marks (;:!?») and after opening guillemets («).
         
         Args:
             text: Input text to process
@@ -240,11 +238,11 @@ class ChordProProcessor:
                         original_title=clean_row.get('Titre original', ''),
                         composer=clean_row.get('Compositeur', ''),
                         author=clean_row.get('Auteur', ''),
-                        key=clean_row.get('TonalitÃƒÂ©', ''),  # Note: might need encoding fix
+                        key=clean_row.get('Tonalité', ''),
                         format=clean_row.get('Format', ''),
                         copyright=clean_row.get('Copyright', ''),
-                        reference=clean_row.get('RÃƒÂ©fÃƒÂ©rence', ''),  # Note: might need encoding fix
-                        theme=clean_row.get('ThÃƒÂ¨me', ''),  # Note: might need encoding fix
+                        reference=clean_row.get('Référence', ''),
+                        theme=clean_row.get('Thème', ''),
                         tune_of=clean_row.get('Air du', ''),
                         volume=clean_row.get('Vol.', ''),
                         supplement=clean_row.get('Suppl', ''),
@@ -628,7 +626,7 @@ class ChordProProcessor:
                 "slides": slides,
                 "layouts": {
                     layout_id: {
-                        "name": "DÃ©faut",
+                        "name": "Default",
                         "notes": "1 voix", 
                         "slides": layout_slides
                     }
